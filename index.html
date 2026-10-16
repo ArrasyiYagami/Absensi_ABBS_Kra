@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0A0F0D">
+    <title>Absensi Kehadiran — ABBS Kra</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Design tokens: "Registri Tinta" -->
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+            --color-ink-950: #0A0F0D;
+            --color-ink-900: #111713;
+            --color-ink-800: #16201B;
+            --color-rule:    #22302A;
+            --color-fog:     #7E8F85;
+            --color-mist:    #A9B9AF;
+            --color-bone:    #E9EFEA;
+            --color-paper:   #EDE8DA;
+        }
+    </style>
+
+    <style>
+        :root { color-scheme: dark; }
+        /* Koherensi token: meratakan radius pada kelas yang di-inject oleh script.
+           Tidak ada logika yang disentuh — hanya penyetelan visual. */
+        #form-alert { border-radius: 0; }
+        #tabel-absen span { border-radius: 0; }
+    </style>
+</head>
+<body class="bg-ink-950 font-sans text-bone antialiased min-h-screen selection:bg-paper selection:text-ink-950">
+
+    <!-- ================= LOGIN: OVERLAY SOLID, TIPOGRAFI EDITORIAL ================= -->
+    <div id="login-modal" class="fixed inset-0 z-50 bg-ink-950 overflow-y-auto">
+        <div class="flex min-h-full flex-col">
+
+            <div class="flex items-center justify-between border-b border-rule px-5 py-4 sm:px-8">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-8 w-8 items-center justify-center bg-paper font-mono text-xs font-bold text-ink-950">ABBS</div>
+                    <span class="font-mono text-[11px] uppercase tracking-[0.25em] text-mist">ABBS Kra — Absensi</span>
+                </div>
+                <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">Akses Terbatas</span>
+            </div>
+
+            <div class="flex flex-1 items-center">
+                <div class="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-5 py-12 sm:px-8 lg:grid-cols-12 lg:gap-8">
+
+                    <!-- Kolom editorial -->
+                    <div class="lg:col-span-7 lg:pr-8">
+                        <p class="font-mono text-[11px] uppercase tracking-[0.28em] text-fog">Sistem Monitoring Kehadiran</p>
+                        <h1 class="mt-5 text-4xl font-semibold leading-[1.05] tracking-tight text-bone sm:text-5xl lg:text-[3.4rem]">
+                            Absensi digital<br>untuk kehadiran pagi.
+                        </h1>
+                        <p class="mt-6 max-w-md text-sm leading-relaxed text-mist">
+                            Panel operator OSIS untuk Kelas X1 &amp; X2. Satu siswa, satu entri per hari —
+                            setiap slip terekam langsung ke data pusat beserta jam dan statusnya.
+                        </p>
+                        <div class="mt-9 flex flex-wrap gap-x-8 gap-y-3">
+                            <span class="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fog"><span class="h-1.5 w-1.5 bg-emerald-400"></span> Hadir</span>
+                            <span class="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fog"><span class="h-1.5 w-1.5 bg-amber-400"></span> Izin / Sakit</span>
+                            <span class="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fog"><span class="h-1.5 w-1.5 bg-rose-400"></span> Alpha</span>
+                        </div>
+                    </div>
+
+                    <!-- Panel otentikasi -->
+                    <div class="lg:col-span-5">
+                        <div class="border border-rule bg-ink-900">
+                            <div class="flex items-center justify-between border-b border-rule px-5 py-3">
+                                <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-mist">Otentikasi Operator</span>
+                                <span class="font-mono text-[10px] text-fog">01</span>
+                            </div>
+                            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5 p-5 sm:p-6">
+                                <div>
+                                    <label for="username" class="mb-2 block font-mono text-[10px] uppercase tracking-[0.22em] text-fog">ID Operator</label>
+                                    <input type="text" id="username" required placeholder="petugas_osis"
+                                        class="w-full border border-rule bg-ink-950 px-4 py-3 text-sm text-bone placeholder:text-fog/40 transition-colors focus:border-paper focus:outline-none">
+                                </div>
+                                <div>
+                                    <label for="password" class="mb-2 block font-mono text-[10px] uppercase tracking-[0.22em] text-fog">Sandi</label>
+                                    <input type="password" id="password" required placeholder="••••••••"
+                                        class="w-full border border-rule bg-ink-950 px-4 py-3 text-sm text-bone placeholder:text-fog/40 transition-colors focus:border-paper focus:outline-none">
+                                </div>
+                                <p id="login-error" class="hidden font-mono text-[11px] uppercase tracking-[0.15em] text-rose-400">Username atau Password salah</p>
+                                <button type="submit" class="w-full cursor-pointer bg-paper py-3.5 font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-950 transition-colors hover:bg-white">
+                                    Masuk Dashboard <i class="fa-solid fa-arrow-right ml-2 text-[10px]"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-rule px-5 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-fog/70 sm:px-8">
+                <span>OSIS · Unit Kehadiran</span>
+                <span>Sinkron Google Sheets</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= DASBOR OPERATOR ================= -->
+    <div id="app-dashboard" class="hidden min-h-screen flex flex-col">
+
+        <!-- Masthead -->
+        <header class="sticky top-0 z-30 border-b border-rule bg-ink-950">
+            <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+                <div class="flex items-center gap-3.5">
+                    <div class="flex h-9 w-9 items-center justify-center bg-paper font-mono text-sm font-bold text-ink-950">ABBS</div>
+                    <div class="leading-tight">
+                        <h1 class="text-sm font-semibold tracking-tight text-bone sm:text-[15px]">Absensi Kehadiran</h1>
+                        <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">Kelas X1 · X2</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                    <span class="hidden items-center gap-2 border border-rule bg-ink-900 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-mist sm:inline-flex">
+                        <span class="h-1.5 w-1.5 bg-paper"></span> Petugas OSIS
+                    </span>
+                    <button onclick="handleLogout()" class="cursor-pointer border border-rule bg-ink-900 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fog transition-colors hover:border-rose-400/50 hover:text-rose-400">
+                        Keluar <i class="fa-solid fa-arrow-right-from-bracket ml-1.5 text-[9px]"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="mx-auto w-full max-w-6xl flex-1 space-y-6 px-5 py-6 sm:space-y-8 sm:px-8 sm:py-8">
+
+            <!-- Strip statistik bergaya buku besar (tidak seragam, dipisah garis vertikal) -->
+            <section aria-label="Ringkasan entri hari ini" class="grid grid-cols-2 border border-rule bg-ink-900 lg:grid-cols-[1.7fr_1fr_1fr_1.3fr]">
+                <div class="border-b border-r border-rule p-5 sm:p-7 lg:border-b-0">
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 bg-emerald-400"></span>
+                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">Tepat Hadir</span>
+                    </div>
+                    <p id="stat-hadir" class="mt-4 font-mono text-5xl font-semibold leading-none tracking-tight text-bone tabular-nums sm:text-6xl">0</p>
+                </div>
+                <div class="border-b border-rule p-5 sm:p-7 lg:border-b-0 lg:border-r">
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 bg-amber-400"></span>
+                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">Izin / Sakit</span>
+                    </div>
+                    <p id="stat-izin" class="mt-4 font-mono text-3xl font-semibold leading-none tracking-tight text-bone tabular-nums sm:text-4xl">0</p>
+                </div>
+                <div class="border-r border-rule p-5 sm:p-7">
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 bg-rose-400"></span>
+                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">Alpha</span>
+                    </div>
+                    <p id="stat-alpha" class="mt-4 font-mono text-3xl font-semibold leading-none tracking-tight text-bone tabular-nums sm:text-4xl">0</p>
+                </div>
+                <div class="p-5 sm:p-7">
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 bg-paper"></span>
+                        <span class="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">Entri Hari Ini</span>
+                    </div>
+                    <p id="stat-total" class="mt-4 font-mono text-3xl font-semibold leading-none tracking-tight text-paper tabular-nums sm:text-4xl">0 / 40</p>
+                    <p class="mt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-fog/70">Batas harian: 40 entri</p>
+                </div>
+            </section>
+
+            <!-- Grid asimetris 5/7: slip formulir (kiri) + registri (kanan) -->
+            <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+
+                <!-- Slip Absensi -->
+                <section class="border border-rule bg-ink-900 lg:col-span-5">
+                    <div class="flex items-center justify-between border-b border-rule px-5 py-3.5">
+                        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-mist">Slip Absensi Pagi</h2>
+                        <span class="font-mono text-[10px] uppercase tracking-[0.15em] text-fog">Entri Manual</span>
+                    </div>
+                    <form id="absen-form" onsubmit="submitAbsen(event)" class="space-y-6 p-5 sm:p-6">
+                        <div>
+                            <label for="kode-siswa" class="mb-2 flex items-baseline gap-2.5 font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
+                                <span class="font-semibold text-paper">01</span> Kode Unik Siswa
+                            </label>
+                            <input type="text" id="kode-siswa" required placeholder="CTH: 4F7Q2"
+                                class="w-full border border-rule bg-ink-950 px-4 py-3 font-mono text-sm uppercase tracking-[0.25em] text-bone placeholder:text-fog/40 transition-colors focus:border-paper focus:outline-none">
+                        </div>
+                        <div>
+                            <label for="status-siswa" class="mb-2 flex items-baseline gap-2.5 font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
+                                <span class="font-semibold text-paper">02</span> Status Kehadiran
+                            </label>
+                            <select id="status-siswa"
+                                class="w-full cursor-pointer border border-rule bg-ink-950 px-4 py-3 text-sm text-bone transition-colors focus:border-paper focus:outline-none">
+                                <option value="Hadir" class="bg-ink-950">Hadir</option>
+                                <option value="Izin" class="bg-ink-950">Izin</option>
+                                <option value="Sakit" class="bg-ink-950">Sakit</option>
+                                <option value="Alpha" class="bg-ink-950">Alpha (Tanpa Keterangan)</option>
+                            </select>
+                        </div>
+                        <div id="form-alert" class="hidden" aria-live="polite"></div>
+                        <button type="submit" class="w-full cursor-pointer bg-paper py-3.5 font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink-950 transition-colors hover:bg-white active:translate-y-px">
+                            <i class="fa-solid fa-check mr-2 text-[10px]"></i> Simpan Kehadiran
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Registri Harian -->
+                <section class="flex flex-col border border-rule bg-ink-900 lg:col-span-7">
+                    <div class="flex items-center justify-between border-b border-rule px-5 py-3.5">
+                        <h2 class="font-mono text-[11px] uppercase tracking-[0.2em] text-mist">Rekapitulasi Hari Ini</h2>
+                        <button onclick="loadData()" class="cursor-pointer border border-rule bg-ink-950 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-mist transition-colors hover:border-fog hover:text-paper">
+                            <i class="fa-solid fa-rotate mr-1.5 text-[9px]"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-x-auto p-5 sm:p-6">
+                        <table class="w-full min-w-[540px] text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-rule">
+                                    <th class="py-3 pr-4 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-fog">Nama Siswa</th>
+                                    <th class="py-3 px-4 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-fog">Kelas</th>
+                                    <th class="py-3 px-4 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-fog">Jam Masuk</th>
+                                    <th class="py-3 pl-4 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-fog">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabel-absen" class="divide-y divide-rule/60 text-sm">
+                                <tr>
+                                    <td colspan="4" class="py-10 text-center font-mono text-xs text-fog">Memuat data absensi...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="border-t border-rule px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fog/70">
+                        Sumber data: Spreadsheet Absensi — terisi dari entri panel kiri
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <footer class="border-t border-rule">
+            <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-fog/70 sm:px-8">
+                <span>ABBS Kra — Unit Kehadiran OSIS</span>
+                <span>Entri Manual · Kapasitas 40/Hari</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Masukkan URL Web App Google Apps Script Anda di bawah ini
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyImaUxTQOmveZMuaFZYPaY6_WchsUNw1AtbUrUr3L7o0UxN8PqThtd0N4WctqVP5lE/exec";
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const user = document.getElementById("username").value;
+            const pass = document.getElementById("password").value;
+            const errorEl = document.getElementById("login-error");
+
+            if (user === "petugas_osis" && pass === "osisabbs") {
+                document.getElementById("login-modal").classList.add("hidden");
+                document.getElementById("app-dashboard").classList.remove("hidden");
+                loadData();
+            } else {
+                errorEl.classList.remove("hidden");
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById("login-modal").classList.remove("hidden");
+            document.getElementById("app-dashboard").classList.add("hidden");
+            document.getElementById("login-form").reset();
+            document.getElementById("login-error").classList.add("hidden");
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getRekap`);
+                const data = await response.json();
+                
+                let hadir = 0, izin = 0, alpha = 0;
+                const tbody = document.getElementById("tabel-absen");
+                tbody.innerHTML = "";
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Belum ada data absensi untuk hari ini.</td></tr>`;
+                    document.getElementById("stat-hadir").innerText = 0;
+                    document.getElementById("stat-izin").innerText = 0;
+                    document.getElementById("stat-alpha").innerText = 0;
+                    document.getElementById("stat-total").innerText = `0 / 40`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    if (item.status === "Hadir") hadir++;
+                    else if (item.status === "Izin" || item.status === "Sakit") izin++;
+                    else alpha++;
+
+                    let badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                    if (item.status === "Izin" || item.status === "Sakit") badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                    if (item.status === "Alpha") badgeColor = "bg-rose-500/10 text-rose-400 border-rose-500/20";
+
+                    tbody.innerHTML += `
+                        <tr class="transition hover:bg-slate-800/30">
+                            <td class="py-3.5 pr-4 font-semibold text-slate-200">${item.nama}</td>
+                            <td class="py-3.5 px-4"><span class="rounded-md bg-slate-800 border border-slate-700/50 px-2.5 py-1 text-xs font-bold text-slate-300">${item.kelas}</span></td>
+                            <td class="py-3.5 px-4 text-slate-400 font-mono text-xs">${item.jam}</td>
+                            <td class="py-3.5 pl-4"><span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeColor}">${item.status}</span></td>
+                        </tr>
+                    `;
+                });
+
+                const totalAbsen = data.length;
+                document.getElementById("stat-hadir").innerText = hadir;
+                document.getElementById("stat-izin").innerText = izin;
+                document.getElementById("stat-alpha").innerText = alpha;
+                document.getElementById("stat-total").innerText = `${totalAbsen} / 40`;
+            } catch (err) {
+                console.error("Gagal memuat data:", err);
+            }
+        }
+
+        async function submitAbsen(event) {
+            event.preventDefault();
+            const kode = document.getElementById("kode-siswa").value.trim();
+            const status = document.getElementById("status-siswa").value;
+            const alertBox = document.getElementById("form-alert");
+
+            alertBox.className = "hidden rounded-xl p-3 text-xs font-medium border";
+            alertBox.innerText = "Mengirim data...";
+            alertBox.classList.remove("hidden");
+            alertBox.classList.add("bg-slate-800/50", "text-slate-300", "border-slate-700");
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ kode, status })
+                });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    alertBox.className = "rounded-xl p-3 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    alertBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1.5"></i> Berhasil mencatat kehadiran: <b>${result.nama} (${result.kelas})</b>`;
+                    document.getElementById("absen-form").reset();
+                    loadData();
+                } else {
+                    alertBox.className = "rounded-xl p-3 text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                    alertBox.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1.5"></i> ${result.message}`;
+                }
+            } catch (err) {
+                alertBox.className = "rounded-xl p-3 text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                alertBox.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1.5"></i> Terjadi kesalahan jaringan.`;
+            }
+        }
+    </script>
+</body>
+</html>
